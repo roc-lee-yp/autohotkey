@@ -1,0 +1,65 @@
+; 批量对齐视频与字幕文件名 v0.7 by 李弱可
+
+Gui, Font, s14
+Gui, Add, Text, x18, 视频格式为 .
+Gui, Add, edit, x+0 vVideoFormat, mkv
+Gui, Add, Text, x18, 字幕格式为 .
+Gui, Add, edit, x+0 vSubFormat, ass
+Gui, Add, Button, Default, OK
+Gui, Show, x900 y400, 请输入视频与字幕的文件格式
+
+return
+
+ButtonOK:
+Gui, Submit
+Loop, *.%VideoFormat%
+{
+	StringTrimRight, Filename, A_LoopFileName, 	StrLen(A_LoopFileExt)
+	FileAppend, %Filename%`n, VideoFileNames.txt
+}
+
+n := 1
+Loop, *.%SubFormat%
+{
+	StringTrimRight, Filename, A_LoopFileName, 	StrLen(A_LoopFileExt)
+	FileAppend, %Filename%`n, SubFileNames.txt
+	FileReadLine, VideoFileName, VideoFileNames.txt, %n%
+	FileAppend, %VideoFileName%`,%Filename%`n, FileNameEquation.csv
+	FileAppend, %VideoFileName%%VideoFormat%对应为`n%Filename%%SubFormat%`n, FileNameEquation.txt
+	n := n + 1
+}
+
+FileRead, FileNameEquation, FileNameEquation.txt,
+Gui, New
+Gui, Font, s14
+Gui, Add, Button, , 开始批量对齐文件名
+Gui, Add, Button, x+10, 放弃
+Loop, Read, FileNameEquation.txt,
+{
+	Gui, Add, text, x18, %A_LoopReadLine%
+}
+
+Gui, Show, w900 h400
+return
+
+Button开始批量对齐文件名:
+Loop, Read, FileNameEquation.csv
+{
+	StringSplit, MyArray, A_LoopReadLine, `,
+	FileMove, %MyArray2%%SubFormat%, %MyArray1%%SubFormat%
+	FileDelete, %MyArray2%%SubFormat%
+}
+FileDelete, FileNameEquation.txt
+FileDelete, FileNameEquation.csv
+FileDelete, VideoFileNames.txt
+FileDelete, SubFileNames.txt
+Gui, destroy
+return
+
+Button放弃:
+FileDelete, FileNameEquation.txt
+FileDelete, FileNameEquation.csv
+FileDelete, VideoFileNames.txt
+FileDelete, SubFileNames.txt
+Gui, destroy
+return
