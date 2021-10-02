@@ -1,0 +1,233 @@
+; 【脚本说明】
+; Ediu自动上字幕原版方法 v5.2 by 李弱可
+; 此脚本用于在 Edius 中自动上字幕。
+; 使用步骤：
+; （待填）
+; 
+; 
+; 
+; Updates:
+; v5.2 
+; 测试解决行距问题，也就是不用把行距拉到看不见第二行。
+; 原版本有个问题就是如果字幕需求位于视频中间，Edius 无法把行距设置那么大。
+; v5.1
+; 1、修正光标位置获取（设置了 CoordMode）
+; 2、增用了数行数环节的 WinWait 功能
+; 
+; 
+; 
+; 后续修改计划：
+; 【增加硬件配置选择，高配电脑可选择更快的处理速度，低配电脑可选择更慢的处理速度】
+
+
+MsgBox, , 【提示】, 强烈建议使用 Win + j 键预设光标位置。`n设置方法：`n1、做好字幕模板，在 Quick Titler 中打开，`n2、将光标移至模板中字幕编辑区的水平中心位置，`n3、使用 Win + j 键记录光标位置。
+MousePosSet := 0
+return
+
+#j::
+CoordMode, Mouse, Screen
+MouseGetPos, TitleEditX, TitleEditY
+MousePosSet := 1
+MsgBox, , 【默认光标位置已设置】, 默认光标位置已设为【%TitleEditX%，%TitleEditY%】，如需重设请按 Win + j
+return
+
+#p::Pause
+
+#q::
+CoordMode, Mouse, Screen
+IfNOtExist, C:\AHK.FILES
+	FileCreateDir, C:\AHK.FILES  ; 在C盘建立工作文件夹
+
+IfWinActive, ahk_exe edius.exe
+{
+tempfilename = %A_Now%
+Sleep 200
+Send +^e  ; 按 shift + ctrl + e 编辑选中素材
+WinWait, ahk_exe quicktitler.exe
+Sleep 400    ; 等待400毫秒
+	If(MousePosSet = 1)
+	{
+	MouseMove, %TitleEditX%, %TitleEditY%
+	Sleep 50
+	}
+Click 2       ; 鼠标左键双击，进入目标字幕的编辑状态（为了这一步成功实现，光标应预置于指定位置）
+sleep, 500    ; 等待500毫秒
+Send ^a
+sleep, 200
+Send ^c
+sleep 200
+FileAppend, %clipboard%, C:\AHK.FILES\%tempfilename%.txt
+
+Send ^{Home}
+Sleep 100
+Send {Down}
+Sleep 100
+Send {Home}
+Sleep 100
+Send ^+{End}
+Sleep 200
+Send ^x
+
+Loop, Read, C:\AHK.FILES\%tempfilename%.txt
+{
+   LineOfSubs = %A_Index%
+}
+LineOfSubs := LineOfSubs - 1
+Sleep, 2000
+Send ^s
+}
+Else
+{
+MsgBox, ,运行情况, 本次计划上%LineOfSubs%条字幕，`n上第%CurrentLine%条字幕时出意外，操作已暂停。
+Loop 3
+{
+SoundBeep, 750, 750
+Sleep 800
+}
+Pause
+}
+
+CurrentLine := 0
+
+loop %LineOfSubs%
+	{
+		CurrentLine := CurrentLine + 1
+SplashTextOn, 300, 200, 运行情况, 本次计划上%LineOfSubs%条字幕，`n当前正在上第%CurrentLine%条字幕。
+WinMove, 运行情况, , 0, 0
+WinWait, ahk_exe edius.exe, , 10 ; 等 Edius 变成活动窗口
+If ErrorLevel = 0
+{
+Sleep 1500 ; 等待1500毫秒
+Send ^{Right} ; 时间线剪辑坐标跳到下一个剪辑点
+Sleep 200
+Send c    ; 按C（切断字幕素材）
+Send +^e  ; 按 shift + ctrl + e 编辑选中素材（切断后的右边部分）
+}
+
+WinWait, ahk_exe quicktitler.exe, , 10  ; 如果 quicktitler 是活动窗口
+If ErrorLevel = 0
+{
+Sleep 1000    ; 等待1000毫秒
+	If(MousePosSet = 1)
+	{
+	MouseMove, %TitleEditX%, %TitleEditY%
+	Sleep 200
+	}
+Click 2       ; 鼠标左键双击，进入目标字幕的编辑状态（为了这一步成功实现，光标应预置于指定位置）
+sleep, 500    ; 等待500毫秒
+; 以下为在字幕编辑框内的操作
+Send ^a
+Send ^v
+Send ^{Home} ; 光标移至文本开头
+Send {Down} ; 光标移至第二行
+Send {Home} ; 确保光标在第二行行首
+Send ^+{End} ; 选中第二行开始的所有文本
+Sleep 100
+Send ^x      ; 剪切
+; 以上为在字幕编辑框内的操作
+Send !l       ; alt + l 从本行代码往下，所做操作为： 1，使字幕居中；2，将字幕另存为新文件。
+Send s
+Send s
+Send {Right}
+Send h
+Send !f
+Send u
+Sleep 200    ; 接下来等待 quicktitler 关闭，回到 Edius 界面
+
+}
+Else          ; 如果 quicktitler 未能及时打开，会报错暂停
+{
+SplashTextOff
+MsgBox, ,运行情况, 本次计划上%LineOfSubs%条字幕，`n上第%CurrentLine%条字幕时出意外，操作已暂停。
+Loop 3
+{
+SoundBeep, 750, 750
+Sleep 800
+}
+Pause
+}
+	}
+
+SplashTextOn, 300, 200, 运行情况, 本次计划上%LineOfSubs%条字幕，`n已全部完成。
+Loop 3
+{
+SoundBeep, 750, 750
+Sleep 800
+}
+SplashTextOff
+MsgBox, , 运行情况, 本次计划上%LineOfSubs%条字幕，`n已全部完成。
+return
+
+#x::   ; 按 Win + x 开始执行操作，可以换成别的键或别的组合键
+CoordMode, Mouse, Screen
+Sleep 50
+Send c
+Sleep 50
+Send +^e  ; 按 shift + ctrl + e 编辑选中素材
+WinWait, ahk_exe quicktitler.exe
+IfWinActive ahk_exe quicktitler.exe
+{
+Sleep 500
+	If(MousePosSet = 1)
+	{
+	MouseMove, %TitleEditX%, %TitleEditY%
+	Sleep 200
+	}
+Click 2
+sleep, 500
+; 以下为在字幕编辑框内的操作
+Send ^a
+Send ^v
+Send ^{Home} ; 光标移至文本开头
+Send {Down} ; 光标移至第二行
+Send {Home} ; 确保光标在第二行行首
+Send ^+{End} ; 选中第二行开始的所有文本
+Sleep 100
+Send ^x      ; 剪切
+; 以上为在字幕编辑框内的操作
+Send !l
+Send s
+Send s
+Send {Right}
+Send h
+Send !f
+Send u
+}
+return
+
+#c::   ; 按 Win + c 开始执行操作，可以换成别的键或别的组合键
+CoordMode, Mouse, Screen
+Sleep 50
+Send c
+Sleep 50
+Send +^e  ; 按 shift + ctrl + e 编辑选中素材
+WinWait, ahk_exe quicktitler.exe
+IfWinActive ahk_exe quicktitler.exe
+{
+Sleep 500
+	If(MousePosSet = 1)
+	{
+	MouseMove, %TitleEditX%, %TitleEditY%
+	Sleep 200
+	}
+Click 2
+sleep, 500
+; 以下为在字幕编辑框内的操作
+Send ^a
+Send ^v
+Send ^{Home} ; 光标移至文本开头
+Send {Down} ; 光标移至第二行
+Send {Home} ; 确保光标在第二行行首
+Send ^+{End} ; 选中第二行开始的所有文本
+Sleep 100
+Send ^x      ; 剪切
+; 以上为在字幕编辑框内的操作
+Send !l
+Send s
+Send s
+Send {Right}
+Send h
+Send !f
+Send u
+}
+return	
